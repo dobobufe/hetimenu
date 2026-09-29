@@ -529,9 +529,15 @@
     </header>
 
     <div class="tajekoztato">
-        <div>
-            <strong>Rendeléseket legkésőbb előző hét szerda éjfélig tudjátok leadni!</strong>
-        </div>
+       <div>
+    <strong>
+        Rendeléseket legkésőbb előző hét szerda éjfélig tudjátok leadni!
+    </strong>
+
+    <div class="elso-het-megjegyzes">
+        (Az első, mostani héten még péntek éjfélig lehet leadni a rendeléseket!)
+    </div>
+</div>
 
         <div>A menü ára 1400 Ft/nap</div>
 
@@ -823,7 +829,7 @@ const NAPI_AR = 1400;
 const HETI_KEDVEZMENY = 0.10;
 let dbSzam = 0;
 
-const URL = "https://script.google.com/macros/s/AKfycbwkGe3M1K2q_iEvh-whozuYAaq4mUQIBrppaZ3fEAAwYkq2_7Y1IO9m6Ai-pZK3e5X4/exec";
+const URL = "https://script.google.com/macros/s/AKfycbzmbxXkXnzJ5FAd4oYpnJvlvUE8IPAHU8lGy7f8g5-DgjKe9GN_Q-pdrw_0PvJFHi2g/exec";
 
 function kezelTanar(){
     const tanar=document.getElementById("tanarE").checked;
