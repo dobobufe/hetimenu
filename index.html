@@ -552,6 +552,22 @@
         }
 
 
+        .kivalasztott-lista {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 7px;
+            align-items: center;
+        }
+
+        .kivalasztott-nap {
+            white-space: nowrap;
+        }
+
+        .kivalasztott-nap .rovid-nap {
+            font-size: 11px;
+            opacity: 0.78;
+        }
+
         /* ==============================
            MOBIL
            ============================== */
@@ -1076,7 +1092,7 @@ const NAPI_AR = 1400;
 const HETI_KEDVEZMENY = 0.10;
 let dbSzam = 0;
 
-const URL = "https://script.google.com/macros/s/AKfycbz-9hXWS4YtY9ruk9DsRJMIHB56YsAT9jNgmehXDyqP6GFgBUM3gleIYQbPut4jw4T1/exec";
+const URL = "https://script.google.com/macros/s/AKfycbw0HaGuas8Xr9zjM90DtZFrjdjMRjwzK1b3SIyP_XiMxsin2d9D8aLkrL9xKxIxagVR/exec";
 
 function kezelTanar(){
     const tanar=document.getElementById("tanarE").checked;
@@ -1107,6 +1123,7 @@ function setKivalasztva(gomb, datum, menu){
         kosar[datum]={
             nap:napSzekcio.dataset.nap,
             het:napSzekcio.dataset.het,
+            datum:datum,
             menu:menu
         };
         gomb.setAttribute("data-db","1");
@@ -1132,30 +1149,25 @@ function pentekiMenu(gomb, datum, nap){
     let menu="Gyros tál";
     if(csipos) menu+=" (csípős)";
     menu+=" + Palacsinta (2 db) - "+palacsinta;
-
     setKivalasztva(gomb, datum, menu);
 }
 
 function tejberizsMenu(gomb, datum, nap){
     const iz=document.getElementById("tejberizsIz").value;
-
     if(!iz){
         alert("Kérlek válaszd ki a tejberizs ízét!");
         return;
     }
-
     const menu="Borsófőzelék kolbásszal + Tejberizs - "+iz;
     setKivalasztva(gomb, datum, menu);
 }
 
 function pizzaMenu(gomb, datum, nap){
     const iz=document.getElementById("pizzaIz").value;
-
     if(!iz){
         alert("Kérlek válaszd ki a pizza típusát!");
         return;
     }
-
     const menu="Tárkonyos raguleves + Fél pizza - "+iz;
     setKivalasztva(gomb, datum, menu);
 }
@@ -1192,6 +1204,23 @@ function frissitGombok(){
     });
 }
 
+function formatDatum(datum){
+    const r=String(datum).split("-");
+    if(r.length!==3) return datum;
+    return r[1]+"."+r[2]+".";
+}
+
+function rovidNap(nap){
+    const rovid={
+        "Hétfő":"H",
+        "Kedd":"K",
+        "Szerda":"Sz",
+        "Csütörtök":"Cs",
+        "Péntek":"P"
+    };
+    return rovid[nap] || nap;
+}
+
 function frissitOsszesito(){
     const rendelesek=Object.values(kosar);
     dbSzam=rendelesek.length;
@@ -1201,18 +1230,37 @@ function frissitOsszesito(){
     const kedvezmeny=napokSzama===5?alapAr*HETI_KEDVEZMENY:0;
     const vegosszeg=alapAr-kedvezmeny;
 
-    const napSzoveg=rendelesek.length
-        ? rendelesek.map(x=>x.nap).join(", ")
-        : "nincs kiválasztott nap";
+    let napSzoveg="nincs kiválasztott nap";
 
-    let szoveg="Kiválasztva: "+napSzoveg+" | Végösszeg: "+vegosszeg.toLocaleString("hu-HU")+" Ft";
+    if(rendelesek.length){
+        rendelesek.sort(function(a,b){
+            return String(a.datum).localeCompare(String(b.datum));
+        });
+
+        const elemek=rendelesek.map(function(x){
+            return '<span class="kivalasztott-nap">'
+                + formatDatum(x.datum)
+                + ' <span class="rovid-nap">('
+                + rovidNap(x.nap)
+                + ')</span></span>';
+        });
+
+        napSzoveg='<span class="kivalasztott-lista">'
+            + elemek.join("")
+            + '</span>';
+    }
+
+    let szoveg="Kiválasztva: "+napSzoveg+
+        " | Végösszeg: "+
+        vegosszeg.toLocaleString("hu-HU")+
+        " Ft";
 
     if(napokSzama===5){
         szoveg+=" (10% kedvezménnyel)";
     }
 
     const kd=document.getElementById("kd");
-    if(kd) kd.innerText=szoveg;
+    if(kd) kd.innerHTML=szoveg;
 }
 
 function kl(){
@@ -1257,7 +1305,8 @@ function kl(){
 
     const hetLista=Object.keys(hetek);
 
-    hetLista.forEach(function(hetDatum, index){
+    hetLista.forEach(function(hetDatum,index){
+
         const mezok={
             nev:nev,
             email:email,
@@ -1267,20 +1316,27 @@ function kl(){
             kedd:"",
             szerda:"",
             csutortok:"",
-            pentek:""
+            pentek:"",
+            hetfoDatum:"",
+            keddDatum:"",
+            szerdaDatum:"",
+            csutortokDatum:"",
+            pentekDatum:""
+        };
+
+        const napMezok={
+            "Hétfő":["hetfo","hetfoDatum"],
+            "Kedd":["kedd","keddDatum"],
+            "Szerda":["szerda","szerdaDatum"],
+            "Csütörtök":["csutortok","csutortokDatum"],
+            "Péntek":["pentek","pentekDatum"]
         };
 
         hetek[hetDatum].forEach(function(r){
-            const mezokKulcsa={
-                "Hétfő":"hetfo",
-                "Kedd":"kedd",
-                "Szerda":"szerda",
-                "Csütörtök":"csutortok",
-                "Péntek":"pentek"
-            }[r.nap];
-
-            if(mezokKulcsa){
-                mezok[mezokKulcsa]=r.menu;
+            const kulcsok=napMezok[r.nap];
+            if(kulcsok){
+                mezok[kulcsok[0]]=r.menu;
+                mezok[kulcsok[1]]=r.datum;
             }
         });
 
