@@ -1259,7 +1259,7 @@ let dbSzam = 0;
 let adminMod = false;
 let adminKulcs = "";
 
-const URL = "https://script.google.com/macros/s/AKfycbzie9WzXOcpXMAafL0cQGARnNiJlz3lSNKGBGSBDdPgiCcQJCbz8ba8YH8ieu2v3MFu/exec";
+const URL = "https://script.google.com/macros/s/AKfycby0ZqDTSrJxXEZyb2IhpQ4Y5HTAC57r_AQEXbkZle9i9L8RxkW1v1XevbPqMAVUfp18/exec";
 
 
 function letrehozElvitelOpcio(datum){
@@ -2649,21 +2649,22 @@ function kl(){
     form.submit();
 
 
-    // A v2 Apps Script HtmlService + postMessage válaszát ellenőrizzük.
-    // A POST és a GET eltérő iframe-ben fut; a siker kizárólag szerverválasz alapján jelenik meg.
+    // JSONP státuszellenőrzés: nincs iframe, postMessage vagy CORS-függő fetch.
+    // A POST továbbra is csak egyszer történik meg.
     var ellenorzesek = 0;
     var lezarva = false;
-    var statuszFrame = document.createElement("iframe");
-    statuszFrame.style.display = "none";
-    statuszFrame.setAttribute("aria-hidden", "true");
-    document.body.appendChild(statuszFrame);
-    var statuszTimeout;
+    var statuszScript = null;
+    var statuszTimeout = null;
+    var statuszCallback = "doboStatusz_" + rendelesAzonosito;
+    function takaritas() {
+        clearTimeout(statuszTimeout);
+        if (statuszScript) { statuszScript.remove(); statuszScript = null; }
+        try { delete window[statuszCallback]; } catch (_) { window[statuszCallback] = undefined; }
+    }
     function befejezes(adat) {
         if (lezarva) return;
         lezarva = true;
-        clearTimeout(statuszTimeout);
-        window.removeEventListener("message", fogadStatuszt);
-        statuszFrame.remove();
+        takaritas();
         gomb.disabled = false;
         gomb.innerText = "Rendelés véglegesítése";
         if (adat && adat.ok) {
@@ -2671,43 +2672,38 @@ function kl(){
         } else if (adat && adat.error) {
             alert("A rendelés nem sikerült: " + adat.error);
         } else {
-            alert("Nem kaptunk megerősítést a szervertől. Ne küldd be újra automatikusan: előbb ellenőrizd a büfénél, hogy rögzült-e a rendelés.");
+            alert("Nem sikerült ellenőrizni a rendelés visszaigazolását. Ne küldd be újra: ellenőrizd az e-mailt vagy a büfénél, hogy rögzült-e.");
         }
     }
-    function fogadStatuszt(event) {
-        if (lezarva) return;
-        // A Google HtmlService köztes iframe-et használhat, ezért a source nem mindig a közvetlen iframe.
-        // A Google HtmlService válasza script.googleusercontent.com eredetű lehet.
-        // A Google HtmlService sandboxolt iframe-je gyakran "null" eredetet ad.
-        // Csak a rendeléshez tartozó, véletlenszerű azonosítójú üzenetet fogadjuk el.
-        if (event.origin !== "null" &&
-            !/^https:\/\/(?:[a-z0-9-]+\.)*googleusercontent\.com$/i.test(event.origin) &&
-            event.origin !== "https://script.google.com") return;
-        var uzenet = event.data;
-        if (typeof uzenet === "string") {
-            try { uzenet = JSON.parse(uzenet); } catch (e) { return; }
-        }
-        if (!uzenet || uzenet.tipus !== "DOBO_RENDELES_STATUSZ" ||
-            uzenet.azonosito !== rendelesAzonosito) return;
+    window[statuszCallback] = function(uzenet) {
+        if (lezarva || !uzenet || uzenet.azonosito !== rendelesAzonosito) return;
         clearTimeout(statuszTimeout);
+        if (statuszScript) { statuszScript.remove(); statuszScript = null; }
         if (uzenet.adat && uzenet.adat.pending) {
-            setTimeout(ellenorizRendeles, 1200);
+            statuszTimeout = setTimeout(ellenorizRendeles, 1200);
         } else {
             befejezes(uzenet.adat);
         }
-    }
-    window.addEventListener("message", fogadStatuszt);
+    };
     function ellenorizRendeles() {
         if (lezarva) return;
         if (++ellenorzesek > 12) return befejezes(null);
-        statuszFrame.src = URL + "?rendelesStatusz=" +
-            encodeURIComponent(rendelesAzonosito) + "&format=iframe&_=" + ellenorzesek;
+        if (statuszScript) { statuszScript.remove(); statuszScript = null; }
+        var script = document.createElement("script");
+        statuszScript = script;
+        script.async = true;
+        script.src = URL + "?rendelesStatusz=" + encodeURIComponent(rendelesAzonosito) +
+            "&format=jsonp&callback=" + encodeURIComponent(statuszCallback) + "&_=" + ellenorzesek;
+        script.onerror = function() {
+            if (lezarva || statuszScript !== script) return;
+            clearTimeout(statuszTimeout);
+            statuszTimeout = setTimeout(ellenorizRendeles, 1500);
+        };
+        document.head.appendChild(script);
         clearTimeout(statuszTimeout);
-        statuszTimeout = setTimeout(function(){
-            if (!lezarva) ellenorizRendeles();
-        }, 3500);
+        statuszTimeout = setTimeout(ellenorizRendeles, 3500);
     }
-    setTimeout(ellenorizRendeles, 1400);
+    statuszTimeout = setTimeout(ellenorizRendeles, 1400);
 
 }
 
