@@ -611,6 +611,7 @@
         <div class="fizetesi-info">
             Fizetni csak személyesen, a büfében tudtok készpénzzel!
         </div>
+        <div class="kedvezmeny-megjegyzes" style="margin-top:7px">Bármilyen észrevétel, kérdés esetén írjatok a <a href="mailto:dobobufe@gmail.com" style="color:inherit; text-decoration:underline">dobobufe@gmail.com</a> e-mail címre!</div>
          
     </div>
 
@@ -1258,7 +1259,7 @@ let dbSzam = 0;
 let adminMod = false;
 let adminKulcs = "";
 
-const URL = "https://script.google.com/macros/s/AKfycbzUHXMCLhaNxanpbNzDcxMYmAIK9Q3o1O2pM6Q0HYyQc9QL0eCRxc_eTlE1x4vHYm-f/exec";
+const URL = "https://script.google.com/macros/s/AKfycbzmUpEVJCmcPLoRkAT7d5GhtxM23liWFAW80qV7yb9p2IvY0J9azJfCEYIVwT0bPelD/exec";
 
 
 function letrehozElvitelOpcio(datum){
@@ -2648,53 +2649,59 @@ function kl(){
     form.submit();
 
 
-    // A szerver tényleges válaszát ellenőrizzük. Nem mutatunk hamis sikert.
+    // A v2 Apps Script HtmlService + postMessage válaszát ellenőrizzük.
+    // A POST és a GET eltérő iframe-ben fut; a siker kizárólag szerverválasz alapján jelenik meg.
     var ellenorzesek = 0;
     var lezarva = false;
+    var statuszFrame = document.createElement("iframe");
+    statuszFrame.style.display = "none";
+    statuszFrame.setAttribute("aria-hidden", "true");
+    document.body.appendChild(statuszFrame);
+    var statuszTimeout;
+    function befejezes(adat) {
+        if (lezarva) return;
+        lezarva = true;
+        clearTimeout(statuszTimeout);
+        window.removeEventListener("message", fogadStatuszt);
+        statuszFrame.remove();
+        gomb.disabled = false;
+        gomb.innerText = "Rendelés véglegesítése";
+        if (adat && adat.ok) {
+            document.getElementById("sikerModal").style.display = "flex";
+        } else if (adat && adat.error) {
+            alert("A rendelés nem sikerült: " + adat.error);
+        } else {
+            alert("Nem kaptunk megerősítést a szervertől. Ne küldd be újra automatikusan: előbb ellenőrizd a büfénél, hogy rögzült-e a rendelés.");
+        }
+    }
+    function fogadStatuszt(event) {
+        if (lezarva || event.source !== statuszFrame.contentWindow) return;
+        // A Google HtmlService válasza script.googleusercontent.com eredetű lehet.
+        if (!/^https:\/\/(?:[a-z0-9-]+\.)*googleusercontent\.com$/i.test(event.origin) &&
+            event.origin !== "https://script.google.com") return;
+        var uzenet = event.data;
+        if (typeof uzenet === "string") {
+            try { uzenet = JSON.parse(uzenet); } catch (e) { return; }
+        }
+        if (!uzenet || uzenet.tipus !== "DOBO_RENDELES_STATUSZ" ||
+            uzenet.azonosito !== rendelesAzonosito) return;
+        clearTimeout(statuszTimeout);
+        if (uzenet.adat && uzenet.adat.pending) {
+            setTimeout(ellenorizRendeles, 1200);
+        } else {
+            befejezes(uzenet.adat);
+        }
+    }
+    window.addEventListener("message", fogadStatuszt);
     function ellenorizRendeles() {
         if (lezarva) return;
-        ellenorzesek++;
-        var callbackNev = "doboStatusz" + Date.now().toString(36) + ellenorzesek;
-        var script = document.createElement("script");
-        var timeout = setTimeout(function(){
-            if (script.parentNode) script.parentNode.removeChild(script);
-            delete window[callbackNev];
-            folytat();
-        }, 7000);
-        function folytat(){
-            if (lezarva) return;
-            if (ellenorzesek < 12) {
-                setTimeout(ellenorizRendeles, 1200);
-            } else {
-                lezarva = true;
-                gomb.disabled = false;
-                gomb.innerText = "Rendelés véglegesítése";
-                alert("Nem kaptunk megerősítést a szervertől. Kérlek, ne küldd be újra automatikusan: előbb érdeklődj a büfénél, hogy rögzült-e a rendelés.");
-            }
-        }
-        window[callbackNev] = function(adat){
-            clearTimeout(timeout);
-            if (script.parentNode) script.parentNode.removeChild(script);
-            delete window[callbackNev];
-            if (lezarva) return;
-            if (adat && adat.pending) return folytat();
-            lezarva = true;
-            gomb.disabled = false;
-            gomb.innerText = "Rendelés véglegesítése";
-            if (adat && adat.ok) {
-                document.getElementById("sikerModal").style.display = "flex";
-            } else {
-                alert("A rendelés nem sikerült: " + ((adat && adat.error) || "Ismeretlen szerverhiba"));
-            }
-        };
-        script.onerror = function(){
-            clearTimeout(timeout);
-            if (script.parentNode) script.parentNode.removeChild(script);
-            delete window[callbackNev];
-            folytat();
-        };
-        script.src = URL + "?rendelesStatusz=" + encodeURIComponent(rendelesAzonosito) + "&callback=" + callbackNev;
-        document.body.appendChild(script);
+        if (++ellenorzesek > 12) return befejezes(null);
+        statuszFrame.src = URL + "?rendelesStatusz=" +
+            encodeURIComponent(rendelesAzonosito) + "&format=iframe&_=" + ellenorzesek;
+        clearTimeout(statuszTimeout);
+        statuszTimeout = setTimeout(function(){
+            if (!lezarva) ellenorizRendeles();
+        }, 3500);
     }
     setTimeout(ellenorizRendeles, 1400);
 
