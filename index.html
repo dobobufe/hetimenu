@@ -520,6 +520,11 @@
             font-weight: 600;
         }
 
+
+        .atvetel-cim { display:block; font-weight:600; margin: 10px 0 6px; }
+        .atvetel-select { display:block; margin:0 auto 7px; padding:9px 12px; border:1px solid #aaa; border-radius:6px; font:inherit; max-width:95%; background:#fff; color:#333; }
+        .atvetel-figyelmeztetes { font-size:13px; color:#7d3333; margin:7px auto; }
+
         .elvitel-opciok {
             margin: 4px 0 12px 0;
             text-align: center;
@@ -606,7 +611,7 @@
         <div class="fizetesi-info">
             Fizetni csak személyesen, a büfében tudtok készpénzzel!
         </div>
-         <div>A rendeléseket 12 és 14 óra közt lehet átvenni.</div>
+         
     </div>
 
     <div class="admin-banner" id="adminBanner">
@@ -619,7 +624,7 @@
 
         <div class="input-group inline">
             <input type="checkbox" id="tanarE" onchange="kezelTanar()">
-            <label for="tanarE">Tanár vagyok</label>
+            <label for="tanarE">Tanár / Dolgozó</label>
         </div>
 
         <div class="input-group">
@@ -1253,7 +1258,7 @@ let dbSzam = 0;
 let adminMod = false;
 let adminKulcs = "";
 
-const URL = "https://script.google.com/macros/s/AKfycbz-eSlDsuVW7OMRz4a2r-XHjgJfIsDpj19-dA2YNJ-9h5wVWNiz-LW2CzNQkLjSrlM/exec";
+const URL = "https://script.google.com/macros/s/AKfycbzVqtrN89bSn-pG9Fwi4NZ-aLwbVg0ueX8MAfRU8SjCr7DctVeRhUnLYVb3Mtl3fEKD/exec";
 
 
 function letrehozElvitelOpcio(datum){
@@ -1293,6 +1298,13 @@ function letrehozElvitelOpcio(datum){
         "elvitel-opciok";
 
     blokk.innerHTML =
+        '<label class="atvetel-cim" for="atvetel-' + datum + '">Átvételi időpont</label>' +
+        '<select class="atvetel-select" id="atvetel-' + datum + '">' +
+          '<option value="12:30">12:30</option>' +
+          '<option value="13:30">13:30</option>' +
+          '<option value="14:30">14:30 – Csak elvitellel</option>' +
+        '</select>' +
+        '<div class="atvetel-figyelmeztetes" id="atvetel-info-' + datum + '" style="display:none">14:30-as átvételnél minden adag elviteles (+200 Ft/adag).</div>' +
         '<label class="elvitel-sor">' +
             '<input type="checkbox" id="elvitel1-' + datum + '">' +
             '<span>Elvitelre (+200 Ft)</span>' +
@@ -1306,6 +1318,11 @@ function letrehozElvitelOpcio(datum){
         "afterend",
         blokk
     );
+
+    blokk.querySelector(".atvetel-select").addEventListener("change", function(){
+        frissitAtvetel(datum);
+        rendelesOpcioValtozott(datum);
+    });
 
     blokk
         .querySelectorAll('input[type="checkbox"]')
@@ -1371,6 +1388,23 @@ function rendelesOpcioValtozott(datum){
 }
 
 
+function atveteliIdo(datum){
+    const el = document.getElementById("atvetel-" + datum);
+    return el ? el.value : "12:30";
+}
+
+function frissitAtvetel(datum){
+    const kotelezo = atveteliIdo(datum) === "14:30";
+    const info = document.getElementById("atvetel-info-" + datum);
+    if(info) info.style.display = kotelezo ? "block" : "none";
+    [1,2].forEach(function(i){
+        const el = document.getElementById("elvitel" + i + "-" + datum);
+        if(!el) return;
+        if(kotelezo) el.checked = true;
+        el.disabled = kotelezo;
+    });
+}
+
 function elvitelAdatok(datum){
 
     const db =
@@ -1389,17 +1423,17 @@ function elvitelAdatok(datum){
         );
 
     const elvitel1 =
-        !!(
+        atveteliIdo(datum) === "14:30" || !!(
             elso &&
             elso.checked
         );
 
     const elvitel2 =
         db === 2 &&
-        !!(
+        (atveteliIdo(datum) === "14:30" || !!(
             masodik &&
             masodik.checked
-        );
+        ));
 
     return {
         elvitel1: elvitel1,
@@ -1593,6 +1627,8 @@ function mennyisegValtozott(datum){
     }
 
 
+    frissitAtvetel(datum);
+
     if(kosar[datum]){
 
         delete kosar[datum];
@@ -1652,7 +1688,8 @@ function setKivalasztva(gomb, datum, menu){
 
             menu:
                 menu +
-                elvitelJeloles(datum),
+                elvitelJeloles(datum) +
+                " | [ÁTVÉTEL: " + atveteliIdo(datum) + "]",
 
             db: db,
 
@@ -1967,12 +2004,12 @@ function frissitGombok(){
 
                     nap
                         .querySelectorAll(
-                            ".opcio-select, .opcio-checkbox input, .elvitel-opciok input"
+                            ".opcio-select, .opcio-checkbox input, .elvitel-opciok input, .atvetel-select"
                         )
                         .forEach(function(el){
 
                             el.disabled =
-                                lezart;
+                                lezart || (el.type === "checkbox" && el.id.indexOf("elvitel") === 0 && atveteliIdo(datum) === "14:30");
 
                         });
 
