@@ -1258,7 +1258,7 @@ let dbSzam = 0;
 let adminMod = false;
 let adminKulcs = "";
 
-const URL = "https://script.google.com/macros/s/AKfycbzVqtrN89bSn-pG9Fwi4NZ-aLwbVg0ueX8MAfRU8SjCr7DctVeRhUnLYVb3Mtl3fEKD/exec";
+const URL = "https://script.google.com/macros/s/AKfycbzUHXMCLhaNxanpbNzDcxMYmAIK9Q3o1O2pM6Q0HYyQc9QL0eCRxc_eTlE1x4vHYm-f/exec";
 
 
 function letrehozElvitelOpcio(datum){
@@ -2585,6 +2585,8 @@ function kl(){
         "none";
 
 
+    const rendelesAzonosito = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 13);
+
     const mezok = {
 
         nev:
@@ -2595,6 +2597,8 @@ function kl(){
 
         osztaly:
             osztalyNev,
+
+        rendelesAzonosito: rendelesAzonosito,
 
         rendelesek:
             JSON.stringify(
@@ -2644,19 +2648,55 @@ function kl(){
     form.submit();
 
 
-    setTimeout(
-        function(){
-
-            document
-                .getElementById(
-                    "sikerModal"
-                )
-                .style.display =
-                    "flex";
-
-        },
-        2000
-    );
+    // A szerver tényleges válaszát ellenőrizzük. Nem mutatunk hamis sikert.
+    var ellenorzesek = 0;
+    var lezarva = false;
+    function ellenorizRendeles() {
+        if (lezarva) return;
+        ellenorzesek++;
+        var callbackNev = "doboStatusz" + Date.now().toString(36) + ellenorzesek;
+        var script = document.createElement("script");
+        var timeout = setTimeout(function(){
+            if (script.parentNode) script.parentNode.removeChild(script);
+            delete window[callbackNev];
+            folytat();
+        }, 7000);
+        function folytat(){
+            if (lezarva) return;
+            if (ellenorzesek < 12) {
+                setTimeout(ellenorizRendeles, 1200);
+            } else {
+                lezarva = true;
+                gomb.disabled = false;
+                gomb.innerText = "Rendelés véglegesítése";
+                alert("Nem kaptunk megerősítést a szervertől. Kérlek, ne küldd be újra automatikusan: előbb érdeklődj a büfénél, hogy rögzült-e a rendelés.");
+            }
+        }
+        window[callbackNev] = function(adat){
+            clearTimeout(timeout);
+            if (script.parentNode) script.parentNode.removeChild(script);
+            delete window[callbackNev];
+            if (lezarva) return;
+            if (adat && adat.pending) return folytat();
+            lezarva = true;
+            gomb.disabled = false;
+            gomb.innerText = "Rendelés véglegesítése";
+            if (adat && adat.ok) {
+                document.getElementById("sikerModal").style.display = "flex";
+            } else {
+                alert("A rendelés nem sikerült: " + ((adat && adat.error) || "Ismeretlen szerverhiba"));
+            }
+        };
+        script.onerror = function(){
+            clearTimeout(timeout);
+            if (script.parentNode) script.parentNode.removeChild(script);
+            delete window[callbackNev];
+            folytat();
+        };
+        script.src = URL + "?rendelesStatusz=" + encodeURIComponent(rendelesAzonosito) + "&callback=" + callbackNev;
+        document.body.appendChild(script);
+    }
+    setTimeout(ellenorizRendeles, 1400);
 
 }
 
