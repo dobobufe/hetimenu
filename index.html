@@ -1259,7 +1259,7 @@ let dbSzam = 0;
 let adminMod = false;
 let adminKulcs = "";
 
-const URL = "https://script.google.com/macros/s/AKfycbx9Q-ltHbVEhuDtiF2koYjMszebY7t_vymWtc2pdDr3alT9VzwUnE-gi5VeOaQkl84Y/exec";
+const URL = "https://script.google.com/macros/s/AKfycbzmUpEVJCmcPLoRkAT7d5GhtxM23liWFAW80qV7yb9p2IvY0J9azJfCEYIVwT0bPelD/exec";
 
 
 function letrehozElvitelOpcio(datum){
@@ -2586,7 +2586,7 @@ function kl(){
         "none";
 
 
-    const rendelesAzonosito = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 13);
+    const rendelesAzonosito = "r" + Date.now().toString(36) + (window.crypto && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2, 13));
 
     const mezok = {
 
@@ -2678,7 +2678,10 @@ function kl(){
         if (lezarva) return;
         // A Google HtmlService köztes iframe-et használhat, ezért a source nem mindig a közvetlen iframe.
         // A Google HtmlService válasza script.googleusercontent.com eredetű lehet.
-        if (!/^https:\/\/(?:[a-z0-9-]+\.)*googleusercontent\.com$/i.test(event.origin) &&
+        // A Google HtmlService sandboxolt iframe-je gyakran "null" eredetet ad.
+        // Csak a rendeléshez tartozó, véletlenszerű azonosítójú üzenetet fogadjuk el.
+        if (event.origin !== "null" &&
+            !/^https:\/\/(?:[a-z0-9-]+\.)*googleusercontent\.com$/i.test(event.origin) &&
             event.origin !== "https://script.google.com") return;
         var uzenet = event.data;
         if (typeof uzenet === "string") {
