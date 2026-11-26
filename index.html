@@ -619,7 +619,7 @@
     <div class="tajekoztato">
         <div>
             <strong>
-                Rendelési határidő: az előző hét péntek 15:00. A december 14–18-i hétre kivételesen december 9. (szerda) 23:59-ig lehet rendelni!
+                Rendelési határidő: előző hét péntek!
             </strong>
         </div>
 
@@ -771,7 +771,7 @@ let dbSzam = 0;
 let adminMod = false;
 let adminKulcs = "";
 
-const URL = "https://script.google.com/macros/s/AKfycbx-LzlxhKLFCzQJAYMKPWL4SgewllfpIYNu6uCileQN0T5tz5ehcA6pzH6Sto-FTeFu/exec";
+const URL = "https://script.google.com/macros/s/AKfycbySEkPuou_0mM4ToJvcPaIUvSSCtaU-HWgeVvoYgdAqd9y4G0N1nMrSsYHYLOsKOzie/exec";
 
 
 function letrehozElvitelOpcio(datum){
@@ -1462,14 +1462,11 @@ function pizzaMenu(gomb, datum, nap){
 }
 
 
-/* Rendelési határidők: előző péntek 15:00; 12.14-i hétre 12.09. 23:59:59. */
+/* Rendelési határidő: előző péntek éjfélig. */
 function rendelesiHatarido(hetDatum){
     const d = new Date(hetDatum + "T00:00:00");
-    if(hetDatum === "2026-12-14"){
-        return new Date(2026, 11, 9, 23, 59, 59, 999);
-    }
     d.setDate(d.getDate() - 3);
-    d.setHours(15, 0, 0, 0);
+    d.setHours(23, 59, 59, 999);
     return d;
 }
 
